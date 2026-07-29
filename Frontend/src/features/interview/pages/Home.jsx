@@ -15,9 +15,27 @@ const Home = () => {
     const navigate = useNavigate()
 
     const handleGenerateReport = async () => {
-        const resumeFile = resumeInputRef.current.files[ 0 ]
-        const data = await generateReport({ jobDescription, selfDescription, resumeFile })
-        navigate(`/interview/${data._id}`)
+        // Safe access to file input
+        const resumeFile = resumeInputRef.current?.files?.[0]
+        
+        // Validation: Basic inputs check
+        if (!jobDescription.trim() && !selfDescription.trim() && !resumeFile) {
+            alert("Please provide a Job Description, Self Description, or upload a Resume.")
+            return
+        }
+
+        try {
+            const data = await generateReport({ jobDescription, selfDescription, resumeFile })
+            
+            // Safety check for backend response before navigating
+            if (data && data._id) {
+                navigate(`/interview/${data._id}`)
+            } else {
+                console.error("Failed to generate report: Invalid response structure", data)
+            }
+        } catch (error) {
+            console.error("Error generating report:", error)
+        }
     }
 
     if (loading) {
