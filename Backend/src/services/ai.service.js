@@ -1,5 +1,6 @@
 const { GoogleGenAI, Type } = require("@google/genai");
-const puppeteer = require("puppeteer");
+const puppeteer = require("puppeteer-core");
+const chromium = require("@sparticuz/chromium");
 
 const ai = new GoogleGenAI({
   apiKey: process.env.GOOGLE_GENAI_API_KEY
@@ -91,7 +92,7 @@ ${jobDescription}
 Provide comprehensive questions, answers, skill gaps, and a step-by-step preparation plan. Do not return empty arrays.`;
 
   const response = await ai.models.generateContent({
-    model: "gemini-3.6-flash",
+    model: "gemini-2.5-flash",
     contents: prompt,
     config: {
       responseMimeType: "application/json",
@@ -103,22 +104,40 @@ Provide comprehensive questions, answers, skill gaps, and a step-by-step prepara
 }
 
 async function generatePdfFromHtml(htmlContent) {
-  const browser = await puppeteer.launch();
-  const page = await browser.newPage();
-  await page.setContent(htmlContent, { waitUntil: "networkidle0" });
+  let browser = null;
+  try {
+    const isProduction = process.env.NODE_ENV === "production";
 
-  const pdfBuffer = await page.pdf({
-    format: "A4",
-    margin: {
-      top: "20mm",
-      bottom: "20mm",
-      left: "15mm",
-      right: "15mm"
+    // Dynamic browser launch setup (Works both locally & on Render server)
+    browser = await puppeteer.launch({
+      args: isProduction ? chromium.args : ["--no-sandbox", "--disable-setuid-sandbox"],
+      defaultViewport: chromium.defaultViewport,
+      executablePath: isProduction
+        ? await chromium.executablePath()
+        : "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe", // Windows local Chrome path
+      headless: isProduction ? chromium.headless : true,
+    });
+
+    const page = await browser.newPage();
+    await page.setContent(htmlContent, { waitUntil: "networkidle0" });
+
+    const pdfBuffer = await page.pdf({
+      format: "A4",
+      margin: {
+        top: "20mm",
+        bottom: "20mm",
+        left: "15mm",
+        right: "15mm"
+      },
+      printBackground: true
+    });
+
+    return pdfBuffer;
+  } finally {
+    if (browser !== null) {
+      await browser.close();
     }
-  });
-
-  await browser.close();
-  return pdfBuffer;
+  }
 }
 
 async function generateResumePdf({ resume, selfDescription, jobDescription }) {
@@ -141,10 +160,10 @@ async function generateResumePdf({ resume, selfDescription, jobDescription }) {
                     you can highlight the content using some colors or different font styles but the overall design should be simple and professional.
                     The content should be ATS friendly, i.e. it should be easily parsable by ATS systems without losing important information.
                     The resume should not be so lengthy, it should ideally be 1 page long when converted to PDF. Focus on quality rather than quantity and make sure to include all the relevant information that can increase the candidate's chances of getting an interview call for the given job description.
-                  `
+                  `;
 
   const response = await ai.models.generateContent({
-    model: "gemini-3.6-flash",
+    model: "gemini-2.5-flash",
     contents: prompt,
     config: {
       responseMimeType: "application/json",
