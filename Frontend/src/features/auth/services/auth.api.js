@@ -1,8 +1,10 @@
 import axios from "axios"
 
+// Production backend URL or local fallback
+const API_BASE_URL = import.meta.env.VITE_API_URL || "https://gen-ai-backend-n1wc.onrender.com";
 
 const api = axios.create({
-    baseURL: "http://localhost:3000",
+    baseURL: API_BASE_URL,
     withCredentials: true
 })
 
